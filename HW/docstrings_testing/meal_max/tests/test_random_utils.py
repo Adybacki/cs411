@@ -1,42 +1,47 @@
 import pytest
-from meal_max.utils.random_utils import RandomUtils
+import requests
 
-def test_get_random_int():
-    """Test fetching a random integer within a range."""
-    min_value = 1
-    max_value = 10
-    rand_int = RandomUtils.get_random_int(min_value, max_value)
-    assert min_value <= rand_int <= max_value, "Random integer should be within the specified range"
+from meal_max.utils.random_utils import get_random
 
-def test_get_random_int_boundaries():
-    """Test fetching a random integer at the boundaries of the range."""
-    min_value = 5
-    max_value = 5
-    rand_int = RandomUtils.get_random_int(min_value, max_value)
-    assert rand_int == min_value == max_value, "When min and max are the same, random integer should be that value"
+RANDOM_NUMBER = 0.42
 
-def test_get_random_float():
-    """Test fetching a random float within a range."""
-    min_value = 0.1
-    max_value = 0.5
-    rand_float = RandomUtils.get_random_float(min_value, max_value)
-    assert min_value <= rand_float <= max_value, "Random float should be within the specified range"
+@pytest.fixture
+def mock_random_org(mocker):
+    # Patch the requests.get call
+    # requests.get returns an object, which we have replaced with a mock object
+    mock_response = mocker.Mock()
+    # We are giving that object a text attribute
+    mock_response.text = f"{RANDOM_NUMBER}"
+    mocker.patch("requests.get", return_value=mock_response)
+    return mock_response
 
-def test_get_random_float_boundaries():
-    """Test fetching a random float at the boundaries of the range."""
-    min_value = 0.42
-    max_value = 0.42
-    rand_float = RandomUtils.get_random_float(min_value, max_value)
-    assert rand_float == min_value == max_value, "When min and max are the same, random float should be that value"
+def test_get_random(mock_random_org):
+    """Test retrieving a random number from random.org."""
+    result = get_random()
 
-def test_get_random_choice():
-    """Test selecting a random item from a list."""
-    options = ["apple", "banana", "cherry"]
-    rand_choice = RandomUtils.get_random_choice(options)
-    assert rand_choice in options, "Random choice should be one of the options in the list"
+    # Assert that the result is the mocked random number
+    assert result == RANDOM_NUMBER, f"Expected random number {RANDOM_NUMBER}, but got {result}"
 
-def test_get_random_choice_empty_list():
-    """Test random choice with an empty list should raise an exception."""
-    options = []
-    with pytest.raises(ValueError):
-        RandomUtils.get_random_choice(options)
+    # Ensure that the correct URL was called
+    requests.get.assert_called_once_with("https://www.random.org/decimal-fractions/?num=1&dec=2&col=1&format=plain&rnd=new", timeout=5)
+
+def test_get_random_request_failure(mocker):
+    """Simulate  a request failure."""
+    mocker.patch("requests.get", side_effect=requests.exceptions.RequestException("Connection error"))
+
+    with pytest.raises(RuntimeError, match="Request to random.org failed: Connection error"):
+        get_random()
+
+def test_get_random_timeout(mocker):
+    """Simulate  a timeout."""
+    mocker.patch("requests.get", side_effect=requests.exceptions.Timeout)
+
+    with pytest.raises(RuntimeError, match="Request to random.org timed out."):
+        get_random()
+
+def test_get_random_invalid_response(mock_random_org):
+    """Simulate  an invalid response (non-digit)."""
+    mock_random_org.text = "invalid_response"
+
+    with pytest.raises(ValueError, match="Invalid response from random.org: invalid_response"):
+        get_random()
