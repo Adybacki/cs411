@@ -91,7 +91,7 @@ delete_meal_by_id() {
 # Get all meals
 get_all_meals() {
   echo "Getting all meals in the kitchen..."
-  response=$(curl -s -X GET "$BASE_URL/meals")
+  response=$(curl -s -X GET "$BASE_URL/get-meal-by-name/Spaghetti")
   if echo "$response" | grep -q '"status": "success"'; then
     echo "All meals retrieved successfully."
     if [ "$ECHO_JSON" = true ]; then
@@ -104,7 +104,6 @@ get_all_meals() {
     exit 1
   fi
 }
-
 
 # Get meal by ID
 get_meal_by_id() {
